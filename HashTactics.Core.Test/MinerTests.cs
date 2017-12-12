@@ -1,4 +1,5 @@
-﻿using Ipfs;
+﻿using System.Threading;
+using Ipfs;
 using NUnit.Framework;
 
 namespace HashTactics.Core.Test
@@ -79,7 +80,7 @@ namespace HashTactics.Core.Test
         {
             var snoop = new Rapper(420, "snoop dogg");
 
-            var mined_snoop = Miner.Mine(snoop, 3);
+            var mined_snoop = Miner.Mine(snoop, 3, CancellationToken.None);
 
             Assert.AreEqual(mined_snoop.Value.Name, "snoop dogg");
             Assert.AreEqual(mined_snoop.Value.Level, 420);
@@ -87,6 +88,22 @@ namespace HashTactics.Core.Test
 
             var mined_dag = IpfsDagSerialization.MapToDag(mined_snoop);
             Assert.True(Miner.FoundGoldenNonce(Base58.Decode(mined_dag.Hash), 3));
+        }
+
+        [Test]
+        public void TestCanCancelMining()
+        {
+            var snoop = new Rapper(420, "snoop dogg");
+
+            var cts = new CancellationTokenSource();
+            var ct = cts.Token;
+            cts.CancelAfter(1337);
+
+            // The difficulty is over nine thouuuuusssaaaaaaannnnnnndddddddddddddddddddddd
+            var mined_snoop = Miner.Mine(snoop, 9001, ct);
+
+            Assert.AreEqual(null, mined_snoop);
+
         }
     }
 }

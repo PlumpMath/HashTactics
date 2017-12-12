@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using HashTactics.Core;
 
 namespace HashTactics.Scratchpad
@@ -58,7 +59,7 @@ namespace HashTactics.Scratchpad
 
             Console.WriteLine(d.ToString());
 
-            var minedGenesisBlock = Miner.Mine(genesisBlockTemplate, 4);
+            var minedGenesisBlock = Miner.Mine(genesisBlockTemplate, 4, CancellationToken.None);
 
             DateTime d2 = DateTime.Now;
             TimeSpan ts = d2.Subtract(d);
@@ -73,7 +74,7 @@ namespace HashTactics.Scratchpad
 
             Console.WriteLine(d.ToString());
 
-            var minedSecondBlock = Miner.Mine(secondBlock, 5);
+            var minedSecondBlock = Miner.Mine(secondBlock, 5, CancellationToken.None);
 
             d2 = DateTime.Now;
             ts = d2.Subtract(d);

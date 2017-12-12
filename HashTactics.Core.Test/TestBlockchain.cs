@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Ipfs;
 using NUnit.Framework;
 
@@ -107,6 +108,41 @@ namespace HashTactics.Core.Test
         }
     }
 
+
+    public class BlockChainProtocol
+    {
+        public event BlockRecievedHandler OnRecievedBlock;
+
+        public event BlockFoundHandler OnFoundBlock; 
+
+        public event TransactionReceivedHandler OnReceivedTransaction;
+
+
+
+    }
+    public delegate void BlockRecievedHandler(object sender, BlockRecievedEventArgs e);
+
+    public delegate void BlockFoundHandler(object sender, BlockFoundEventArgs e);
+
+    public delegate void TransactionReceivedHandler(object sender, TransactionReceivedHandlerArgs args);
+
+    public class TransactionReceivedHandlerArgs
+    {
+    }
+
+    internal class TransactionRecievedEventArgs
+    {
+    }
+
+    public class BlockFoundEventArgs
+    {
+    }
+
+    public class BlockRecievedEventArgs
+    {
+    }
+
+
     [TestFixture]
     public class TestBlockchainPrototype
     {
@@ -116,7 +152,7 @@ namespace HashTactics.Core.Test
             BlockChain genesisBlockTemplate = new BlockChain(null, DateTime.Now, 4, "Howdy World!");
 
             Assert.True(new BlockChainValidator().Validate(genesisBlockTemplate));
-            var minedGenesisBlock = Miner.Mine(genesisBlockTemplate, 4);
+            var minedGenesisBlock = Miner.Mine(genesisBlockTemplate, 4, CancellationToken.None);
 
             Assert.True(new BlockChainValidator().Validate(minedGenesisBlock.Value));
 
@@ -139,12 +175,12 @@ namespace HashTactics.Core.Test
         public void TestBlockchainInvalidViaWrongLedger()
         {
             BlockChain genesisBlockTemplate = new BlockChain(null, DateTime.Now, 4, "Howdy World!");
-            var minedGenesisBlock = Miner.Mine(genesisBlockTemplate, 4);
+            var minedGenesisBlock = Miner.Mine(genesisBlockTemplate, 4, CancellationToken.None);
 
             BlockChain secondBlock = new BlockChain(minedGenesisBlock, DateTime.Now, 5, null);
             Assert.False(new BlockChainValidator().Validate(secondBlock));
 
-            var minedSecondBlock = Miner.Mine(secondBlock, 4);
+            var minedSecondBlock = Miner.Mine(secondBlock, 4, CancellationToken.None);
 
             Assert.False(new BlockChainValidator().Validate(secondBlock));
 

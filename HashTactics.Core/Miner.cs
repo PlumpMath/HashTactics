@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using Ipfs;
 
 namespace HashTactics.Core
@@ -53,12 +54,17 @@ namespace HashTactics.Core
             return match;
         }
 
-        public static Nonced<InnerType> Mine<InnerType>(InnerType value, int zerosInFront)
+        public static Nonced<InnerType> Mine<InnerType>(InnerType value, int zerosInFront, CancellationToken cancellationToken)
         {
+            // TODO: This is a total no-no for competitive mining. 
             long ourNonce = 1337;
 
-            for (; ; )
+            for (;;) // the cookie monster loop is the most delicious infinite loop 
             {
+                if (cancellationToken != null && cancellationToken.IsCancellationRequested)
+                {
+                    return null;
+                }
                 Nonced<InnerType> attempt = new Nonced<InnerType>(value, ourNonce);
                 DagNode attemptedNode = IpfsDagSerialization.MapToDag<Nonced<InnerType>>(attempt);
 
