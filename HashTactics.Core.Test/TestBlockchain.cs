@@ -29,6 +29,16 @@ namespace HashTactics.Core.Test
             this.Target = Target;
             this.Message = Message;
         }
+
+        public long GetBlockchainDepth()
+        {
+            if (IsGenesisBlock())
+            {
+                return 0;
+            }
+
+            return 1 + PreviousBlock.Value.GetBlockchainDepth();
+        }
     }
 
     public class BlockChainValidator
@@ -46,15 +56,29 @@ namespace HashTactics.Core.Test
         {
             List<string> ledger = new List<string>();
 
-            BlockChain current = bc;
-
-            while (current != null)
-            {
-                ledger.Add(current.Message);
-                current = current.PreviousBlock?.Value;
+            foreach (var block in BlocksTowardsGenesis(bc))
+            { 
+                ledger.Add(block.Message);
             }
 
+            ledger.Reverse();
             return ledger;
+        }
+
+        public IEnumerable<BlockChain> BlocksTowardsGenesis(BlockChain bc)
+        {
+            BlockChain current = bc;
+
+            if (current == null)
+            {
+                yield break;
+            }
+
+            do
+            {
+                yield return current;
+                current = current.PreviousBlock?.Value;
+            } while (current != null);
         }
 
         public bool ValidateLedger(List<string> ledger)
@@ -106,36 +130,180 @@ namespace HashTactics.Core.Test
                 return transactionsValid;
             }
         }
-    }
 
+        public long GetBlockchainDepth(BlockChain bc)
+        {
+            return bc.GetBlockchainDepth();
+        }
+    }
 
     public class BlockChainProtocol
     {
+        private string currentTransaction;
+        private Nonced<BlockChain> currentBlock;
+
+        private List<Nonced<BlockChain>> competingBlocks = new List<Nonced<BlockChain>>();
+
+        private void addCompetingBlock(Nonced<BlockChain> block)
+        {
+            var valid = new BlockChainValidator().Validate(block);
+            if (valid)
+            {
+                if (currentBlock == null)
+                {
+                    currentBlock = block;
+                }
+
+                // descended from block 
+                // Below the tree
+                if (block.Value.GetBlockchainDepth() > currentBlock.Value.GetBlockchainDepth())
+                {
+                    
+                }
+            }
+                
+        }
+
+        public Nonced<BlockChain> CurrentBlock => GetLongestBlock();
+
+        private Nonced<BlockChain> GetLongestBlock()
+        {
+            return competingBlocks.OrderByDescending(x => x.Value.GetBlockchainDepth()).FirstOrDefault();
+        }
+
+        private void CullCandidateBlocks()
+        {
+            long maxDepth = GetLongestBlock().Value.GetBlockchainDepth();
+            competingBlocks = competingBlocks.Where(x => x.Value.GetBlockchainDepth() > maxDepth - 2).ToList();
+
+            OnReceivedTransaction += (sender, args) => RecieveTransaction(sender, args);
+        }
+
+        private HashSet<string> rejectedTransactions;
+        private CancellationToken fullStopCancellationToken;
+        private CancellationToken miningCancellationToken;
+
         public event BlockRecievedHandler OnRecievedBlock;
 
         public event BlockFoundHandler OnFoundBlock; 
 
         public event TransactionReceivedHandler OnReceivedTransaction;
 
+        public Nonced<BlockChain> BegForCurrentBlock()
+        {
+            CancellationTokenSource source = new CancellationTokenSource();
+            var token = source.Token;
+            source.CancelAfter(400);
+            // Call out to the network and wait for a value. 
 
+            var blockChainAlms = BegForCurrentBlock(token);
 
+            if (blockChainAlms != null)
+            {
+                competingBlocks.Add(blockChainAlms);
+            }
+
+            return GetLongestBlock();
+        }
+
+        public Nonced<BlockChain> BegForCurrentBlock(CancellationToken ct)
+        {
+            return null;
+        }
+
+        public void RecieveTransaction(object sender, TransactionRecievedEventArgs e)
+        {
+            currentTransaction = e.ProposedTransaction;
+        }
+
+        public BlockChainProtocol(Nonced<BlockChain> startingBlock, CancellationToken fullStopCancellationToken)
+        {
+            competingBlocks.Add(startingBlock);
+            currentBlock = startingBlock;
+            this.fullStopCancellationToken = fullStopCancellationToken;
+        }
+
+        private bool ContinueMining(CancellationToken suppliedCancellationToken)
+        {
+            return !(suppliedCancellationToken.IsCancellationRequested ||
+                     fullStopCancellationToken.IsCancellationRequested);
+        }
+
+        public int GetCurrentDifficulty()
+        {
+            return 4;
+        }
+
+        public void StartMining(CancellationToken allMiningCancellationToken)
+        {
+            while (ContinueMining(allMiningCancellationToken))
+            {
+                CullCandidateBlocks();
+
+                // We need to wait for a transaction before we start mining. 
+                if (currentTransaction == null)
+                {
+                    allMiningCancellationToken.WaitHandle.WaitOne(50);
+                    fullStopCancellationToken.WaitHandle.WaitOne(50);
+                    continue;
+                }
+
+                if (currentBlock == null)
+                {
+                    currentBlock = BegForCurrentBlock();
+                    if (currentBlock == null)
+                    {
+                        // If cancelled or didn't find a block
+                        break;
+                    }
+                    continue;
+                }
+
+                currentBlock = GetLongestBlock();
+
+                if (currentBlock == null)
+                {
+                    continue;
+                }
+
+                BlockChain candidateChain = new BlockChain(currentBlock, DateTime.Now, GetCurrentDifficulty(), currentTransaction);
+                var minedResult = Miner.Mine(candidateChain, candidateChain.Target, allMiningCancellationToken);
+
+                if (minedResult != null)
+                {
+                    competingBlocks.Add(minedResult);
+                    OnFoundBlock?.Invoke(this, new BlockFoundEventArgs(minedResult));
+                }
+            }
+        }
     }
+
     public delegate void BlockRecievedHandler(object sender, BlockRecievedEventArgs e);
 
     public delegate void BlockFoundHandler(object sender, BlockFoundEventArgs e);
 
-    public delegate void TransactionReceivedHandler(object sender, TransactionReceivedHandlerArgs args);
+    public delegate void TransactionReceivedHandler(object sender, TransactionRecievedEventArgs args);
 
-    public class TransactionReceivedHandlerArgs
+    public class TransactionRecievedEventArgs
     {
-    }
+        public string ProposedTransaction { get; set; }
 
-    internal class TransactionRecievedEventArgs
-    {
+        public TransactionRecievedEventArgs(string transaction)
+        {
+            ProposedTransaction = transaction;
+        }
+
+        public string TransactionHash => IpfsDagSerialization.MapToDag(this.ProposedTransaction).Hash;
     }
 
     public class BlockFoundEventArgs
     {
+        public BlockFoundEventArgs(Nonced<BlockChain> minedResult)
+        {
+            FoundBlock = minedResult;
+        }
+
+        public Nonced<BlockChain> FoundBlock { get; }
     }
 
     public class BlockRecievedEventArgs
@@ -187,6 +355,39 @@ namespace HashTactics.Core.Test
             BlockChain thirdBlock = new BlockChain(minedSecondBlock, DateTime.Now, 4, "Valid message");
 
             Assert.False(new BlockChainValidator().Validate(thirdBlock));
+        }
+
+        [Test]
+        public void TestBasicBlockchainProtocol()
+        {
+            BlockChain genesisBlockTemplate = new BlockChain(null, DateTime.Now, 4, "Howdy World!");
+            var minedGenesisBlock = Miner.Mine(genesisBlockTemplate, 4, CancellationToken.None);
+
+            List<string> transactions = new List<string>(){"How are you doing?", "I am doing fine.", "Isn't this cool?"};
+
+            CancellationTokenSource source = new CancellationTokenSource(60000);
+            BlockChainProtocol protocol = new BlockChainProtocol(minedGenesisBlock, source.Token);
+            
+
+            CancellationTokenSource cancelMining = new CancellationTokenSource(60000);
+            protocol.OnFoundBlock += (o,v)=>cancelMining.Cancel();
+
+            foreach (var transaction in transactions)
+            {
+                cancelMining = new CancellationTokenSource(60000);
+                protocol.RecieveTransaction(this, new TransactionRecievedEventArgs(transaction));
+                protocol.StartMining(cancelMining.Token);
+            }
+
+            var ledger = new BlockChainValidator().GetLedger(protocol.CurrentBlock.Value);
+            var expected = new []{ "Howdy World!","How are you doing?", "I am doing fine.", "Isn't this cool?"};
+
+            for (int i = 0; i < ledger.Count; i++)
+            {
+                Assert.AreEqual(expected[i], ledger[i]);                
+            }
+
+            Assert.True(new BlockChainValidator().Validate(protocol.CurrentBlock.Value));
         }
     }
 }
