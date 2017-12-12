@@ -39,9 +39,20 @@ namespace HashTactics.Core.Test
 
             return 1 + PreviousBlock.Value.GetBlockchainDepth();
         }
+
+        public IEnumerable<BlockChain> BlocksTowardsGenesis()
+        {
+            BlockChain current = this;
+
+            do
+            {
+                yield return current;
+                current = current.PreviousBlock?.Value;
+            } while (current != null);
+        }
     }
 
-    public class BlockChainValidator
+    public class BlockChainValidator : IChainValidator<BlockChain, List<string>>
     {
         public BlockChainValidator()
         {
@@ -67,18 +78,12 @@ namespace HashTactics.Core.Test
 
         public IEnumerable<BlockChain> BlocksTowardsGenesis(BlockChain bc)
         {
-            BlockChain current = bc;
-
-            if (current == null)
+            if (bc == null)
             {
-                yield break;
+                return Enumerable.Empty<BlockChain>();
             }
 
-            do
-            {
-                yield return current;
-                current = current.PreviousBlock?.Value;
-            } while (current != null);
+            return bc.BlocksTowardsGenesis();
         }
 
         public bool ValidateLedger(List<string> ledger)
@@ -137,7 +142,19 @@ namespace HashTactics.Core.Test
         }
     }
 
-    public class BlockChainProtocol
+    public interface IChainValidator<BlockchainType, LedgerType>
+    {
+        bool Validate(BlockchainType chain);
+        bool ValidateLedger(LedgerType ledger);
+    }
+
+    public interface IBlockChainProtocol<LedgerType, TransactionType>
+    {
+        
+            
+    }
+
+    public class BlockChainProtocol: IBlockChainProtocol<BlockChain, string>
     {
         private string currentTransaction;
         private Nonced<BlockChain> currentBlock;
@@ -223,12 +240,14 @@ namespace HashTactics.Core.Test
             this.fullStopCancellationToken = fullStopCancellationToken;
         }
 
+        // TODO: We want to use a token source to combine CancellationTokens, this is really bad at the moment. 
         private bool ContinueMining(CancellationToken suppliedCancellationToken)
         {
             return !(suppliedCancellationToken.IsCancellationRequested ||
                      fullStopCancellationToken.IsCancellationRequested);
         }
 
+        // TODO: Obviously for a real chain this will be different. 
         public int GetCurrentDifficulty()
         {
             return 4;
