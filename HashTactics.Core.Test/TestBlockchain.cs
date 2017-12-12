@@ -63,7 +63,9 @@ namespace HashTactics.Core.Test
                 return false;
             }
 
-            return true;
+            HashSet<string> vals = new HashSet<string>(ledger);
+
+            return vals.Count == ledger.Count;
         }
 
         public bool Validate(Nonced<BlockChain> chain)

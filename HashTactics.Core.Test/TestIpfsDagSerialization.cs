@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using Ipfs;
 using NUnit.Framework;
-using Org.BouncyCastle.Asn1.X509;
 
 namespace HashTactics.Core.Test
 {
