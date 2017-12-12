@@ -20,6 +20,12 @@ namespace HashTactics.Core
             return (byte)(0b11111111 >> (byte)zerosInFront);
         }
 
+
+        public static bool FoundGoldenNonce(object obj, int zerosInFront)
+        {
+            return FoundGoldenNonce(Base58.Decode(IpfsDagSerialization.MapToDag(obj).Hash), zerosInFront);
+        }
+
         public static bool FoundGoldenNonce(byte[] hash, int zerosInFront)
         {
             int maxBytes = (int)Math.Ceiling((double)zerosInFront / 8);

@@ -21,7 +21,6 @@ namespace HashTactics.Core.Test
             
             Assert.AreEqual(6, links.Count);
             Assert.True(genesisNode.Size > 10);
-
         }
     }
 }

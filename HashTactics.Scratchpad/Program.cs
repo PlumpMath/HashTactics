@@ -20,6 +20,9 @@ namespace HashTactics.Scratchpad
 
     }
 
+
+    
+
     public class BlockChain
     {
         // If it's good enough for Bitcoin it's good enough for us.
@@ -70,12 +73,14 @@ namespace HashTactics.Scratchpad
 
             Console.WriteLine(d.ToString());
 
-            var minedSecondBlock = Miner.Mine(secondBlock, 6);
+            var minedSecondBlock = Miner.Mine(secondBlock, 5);
 
             d2 = DateTime.Now;
             ts = d2.Subtract(d);
             Console.WriteLine(ts.Seconds.ToString());
             Console.WriteLine(minedSecondBlock.Nonce);
+
+
 
             Console.ReadLine();
         }
