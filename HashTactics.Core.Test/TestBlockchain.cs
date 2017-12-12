@@ -121,19 +121,17 @@ namespace HashTactics.Core.Test
             {
                 return ValidateLedger(GetLedger(chain));
             }
-            else
+            
+            // validate previous block and its targeted hash 
+            bool previousNodeValid = Validate(chain.PreviousBlock);
+
+            if (!previousNodeValid)
             {
-                // validate previous block and its targeted hash 
-                bool previousNodeValid = Validate(chain.PreviousBlock);
-
-                if (!previousNodeValid)
-                {
-                    return false;
-                }
-
-                bool transactionsValid = ValidateLedger(GetLedger(chain));
-                return transactionsValid;
+                return false;
             }
+
+            bool transactionsValid = ValidateLedger(GetLedger(chain));
+            return transactionsValid;
         }
 
         public long GetBlockchainDepth(BlockChain bc)
@@ -156,6 +154,9 @@ namespace HashTactics.Core.Test
 
     public class BlockChainProtocol: IBlockChainProtocol<BlockChain, string>
     {
+
+        private IChainValidator<BlockChain, List<string>> validator; 
+
         private string currentTransaction;
         private Nonced<BlockChain> currentBlock;
 
