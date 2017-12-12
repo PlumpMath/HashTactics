@@ -31,11 +31,17 @@ namespace HashTactics.Core
             return new DagNode(Varint.Encode(Convert.ToInt64(input)));
         }
 
+        public static DagNode ToDateTimeNode(object input)
+        {
+            return ToStringUtf8Node(input.ToString());
+        }
+
         static IpfsDagSerialization()
         {
             RegisterSerializer<string>(ToStringUtf8Node);
             RegisterSerializer<long>(ToVarintNode);
             RegisterSerializer<int>(ToVarintNode);
+            RegisterSerializer<DateTime>(ToDateTimeNode);
         }
 
         public static DagNode MapToDag<ObjectType>(ObjectType instance)
@@ -45,6 +51,11 @@ namespace HashTactics.Core
 
         private static DagNode MapToDag(Type objectType, object value)
         {
+            if (value == null)
+            {
+                return new DagNode(new byte[]{});
+            }
+
             if (ConverterRepository.ContainsKey(objectType))
             {
                 return ConverterRepository[objectType](value);
